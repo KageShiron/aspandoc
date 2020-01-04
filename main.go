@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"time"
+	"strings"
 )
 
 func getParam(values url.Values,key string,def string) string {
@@ -45,56 +46,45 @@ func handlerPandoc(w http.ResponseWriter, r *http.Request) {
 }
 
 type pandocParams struct {
-	url string
+	body []byte
 	to string
 	from string
 	stripyaml bool
-	jsonObject string
 }
 
 type apiResult struct {
 	BodyMd string `json:"body_md"`
-	BodyHtml string `json:"body_html"`
+	BodyHTML string `json:"body_html"`
 }
 
-func hoge(w http.ResponseWriter, params *pandocParams){
+func fetchData(w http.ResponseWriter, url string) []byte {
 	client := &http.Client{Timeout: time.Duration(5) * time.Second}
-	resp,err := client.Get(params.url)
+	resp,err := client.Get(url)
 	if err != nil {
 		writeError(w,400,"bad url")
-		return
+		return nil
 	}
 	body, err := ioutil.ReadAll(resp.Body)
-	defer resp.Body.Close()
+	if err != nil {
+		writeError(w,400,"bad response")
+		return nil
+	}
+	resp.Body.Close()
+	return body
+}
 
-
+func pandoc(w http.ResponseWriter, params *pandocParams){
 	cmd := exec.Command("pandoc","-f",params.from,"-t",params.to)
 	stdin,err := cmd.StdinPipe()
 	if err != nil {
-		writeError(w,400,"bad url")
+		writeError(w,500,"Pandoc internal error")
 		return
 	}
-	if params.jsonObject != "" {
-		var jsonObj apiResult
-		if err := json.Unmarshal(body,&jsonObj) ; err != nil{
-			writeError(w,400,err.Error())
-			return
-		}
-		switch params.jsonObject {
-		case "body_html":
-			body = []byte(jsonObj.BodyHtml)
-		case "body_md":
-			body = []byte(jsonObj.BodyMd)
-		default:
-			writeError(w,400,fmt.Sprint(jsonObj))
-			return
-		}
-	}
 	if params.stripyaml {
-		body = body[bytes.Index(body, []byte("\n---\n"))+5:]
+		params.body = params.body[bytes.Index(params.body, []byte("\n---\n"))+5:]
 	}
-	if _,err := stdin.Write(body) ; err != nil {
-		writeError(w,400,err.Error())
+	if _,err := stdin.Write(params.body) ; err != nil {
+		writeError(w,500,err.Error())
 		return
 	}
 	stdin.Close()
@@ -115,7 +105,7 @@ func hoge(w http.ResponseWriter, params *pandocParams){
 	w.Write(pan)
 }
 
-func handlerUrl(w http.ResponseWriter, r *http.Request) {
+func handlerURL(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm() ; err != nil{
 		return
 	}
@@ -124,20 +114,19 @@ func handlerUrl(w http.ResponseWriter, r *http.Request) {
 		writeError(w,400,"url is empty")
 		return
 	}
+	body := fetchData(w,url)
+	if body == nil { return }
 	params := &pandocParams{
-		url: url,
+		body: body,
 		to : getParam(r.Form, "to", "html"),
 		from : getParam(r.Form, "from", "gfm"),
 		stripyaml : (getParam(r.Form, "stripyaml", "true") == "true"),
-		jsonObject: "",
 	}
-	hoge(w,params)
+	pandoc(w,params)
 }
 
 func handlerEsa(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseForm() ; err != nil {
-		return
-	}
+	if err := r.ParseForm() ; err != nil { return }
 	team := r.Form.Get("team")
 	token := r.Form.Get("token")
 	num,err := strconv.Atoi(r.Form.Get("num"))
@@ -145,22 +134,64 @@ func handlerEsa(w http.ResponseWriter, r *http.Request) {
 		writeError(w,400,"Bad params")
 		return
 	}
-	print(fmt.Sprintf("https://api.esa.io/v1/teams/%s/posts/%d?access_token=%s",team,num,token))
 
-	jsonObject := "body_" + getParam(r.Form,"type","md")
-	fromDefault := "gfm"
-	if jsonObject == "body_html" {
-		fromDefault = "html"
+	body := fetchData(w,fmt.Sprintf("https://api.esa.io/v1/teams/%s/posts/%d?access_token=%s",team,num,token))
+	if body == nil { return }
+
+	var jsonObj apiResult
+	if err := json.Unmarshal(body,&jsonObj) ; err != nil{
+		writeError(w,400,err.Error())
+		return
+	}
+
+	fromDefault := "html"
+	if getParam(r.Form,"type","md") == "html" {
+		body = []byte(jsonObj.BodyHTML)
+	} else {
+		fromDefault = "gfm"
+		body = []byte(jsonObj.BodyMd)
 	}
 
 	params := &pandocParams{
-		url: fmt.Sprintf("https://api.esa.io/v1/teams/%s/posts/%d?access_token=%s",team,num,token),
+		body: body,
 		from : getParam(r.Form, "from", "gfm"),
 		to : getParam(r.Form, "to", fromDefault),
 		stripyaml: (getParam(r.Form, "stripyaml", "false") == "true"),
-		jsonObject: jsonObject,
 	}
-	hoge(w,params)
+	pandoc(w,params)
+}
+
+func handlerGist(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm() ; err != nil {
+		return
+	}
+	id := r.Form.Get("id")
+	file := r.Form.Get("file")
+	sha := r.Form.Get("sha")
+	if id == "" || strings.Contains(id,"/") || strings.Contains(sha,"/") {
+		writeError(w,400,"Bad params")
+		return
+	}	
+	if sha != "" { sha = "/" + sha } 
+
+	body := fetchData(w,fmt.Sprintf(fmt.Sprintf("https://api.github.com/gists/%s%s",id,sha)))
+	if body == nil { return }
+
+	var gistResult GistResult
+	if err := json.Unmarshal(body,&gistResult) ; err != nil{
+		writeError(w,400,err.Error())
+		return
+	}
+
+	f := gistResult.Files[file].Content
+
+	params := &pandocParams{
+		body: []byte(f),
+		from : getParam(r.Form, "from", "gfm"),
+		to : getParam(r.Form, "to", "gfm"),
+		stripyaml: false,
+	}
+	pandoc(w,params)
 }
 
 func main() {
@@ -170,9 +201,9 @@ func main() {
 	}
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/version", handlerPandoc )
-	http.HandleFunc("/url",handlerUrl)
+	http.HandleFunc("/url",handlerURL)
 	http.HandleFunc("/esa",handlerEsa)
-	http.HandleFunc("/gist",handlerEsa)
-	http.HandleFunc("/snippets",handlerEsa)
+	http.HandleFunc("/gist",handlerGist)
+	// http.HandleFunc("/snippets",handlerEsa)
 	http.ListenAndServe(addr, nil)
 }
