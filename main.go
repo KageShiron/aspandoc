@@ -74,7 +74,7 @@ func fetchData(w http.ResponseWriter, url string) []byte {
 }
 
 func pandoc(w http.ResponseWriter, params *pandocParams){
-	cmd := exec.Command("pandoc","-f",params.from,"-t",params.to)
+	cmd := exec.Command("docker","run","-i", "kageshiron/pandoc" ,"pandoc","-f",params.from,"-t",params.to)
 	stdin,err := cmd.StdinPipe()
 	if err != nil {
 		writeError(w,500,"Pandoc internal error")
