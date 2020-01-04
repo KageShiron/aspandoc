@@ -6,7 +6,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
 
-FROM kageshiron/pandoc
+FROM docker:stable-dind
 WORKDIR /root/
 COPY --from=0 /go/src/github.com/KageShiron/aspandoc/app .
 CMD ["./app"]
