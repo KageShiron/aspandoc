@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>AsPandoc</title>
+    <link href="https://fonts.googleapis.com/css?family=Zilla+Slab:700&display=swap" rel="stylesheet">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/github-fork-ribbon-css/0.2.3/gh-fork-ribbon.min.css" />
+    <style>
+        html {
+            background: repeating-linear-gradient(45deg, #F6F6F6, #F6F6F6 5px, white 5px, white 10px)
+        }
+
+        body {
+            width: 600px;
+            background: white;
+            margin: auto;
+            min-height: 100vh;
+            border: solid #EEE;
+            border-width: 0 1px 0 1px;
+            padding: 1em
+        }
+
+        h1 {
+            margin: 0;
+            padding: .5em;
+            text-align: center;
+            font-family: 'Zilla Slab', serif;
+            min-width:
+        }
+
+        code {
+            display: inline-block;
+            padding: 0.3em;
+            border-radius: 3px;
+            background: #FFF0E0;
+        }
+    </style>
+
+</head>
+
+<body>
+    <a class="github-fork-ribbon" href="https://github.com/KageShiron/aspandoc" data-ribbon="Fork me on GitHub"
+        title="Fork me on GitHub">GitHub</a>
+    <h1>AsPandoc</h1>
+    <p>
+        Pandocを用いてオンライン上のドキュメントを別のドキュメントに変換するサービスです。 <br>
+    </p>
+    <h2>Generic Options</h2>
+    <p>
+        <dl>
+            <dt>from</dt>
+            <dd>
+                (default: gfm)
+                Pandoc Input Format.<br>
+                <a href="https://pandoc.org/MANUAL.html#option--from">See also pandoc's document.</a>
+            </dd>
+            <dt>to</dt>
+            <dd>
+
+                (default: html) Pandoc Output Format.<br>
+                <a href="https://pandoc.org/MANUAL.html#option--to">See also pandoc's document.</a>
+            </dd>
+            <dt>stripyaml</dt>
+            <dd>
+                (default:false) Remove yaml header in the document when true.
+            </dd>
+        </dl>
+    </p>
+
+    <h2>URL</h2>
+    <p>
+        Syntax:<br>
+        <code>
+            /url?url={URL}
+        </code>
+    </p>
+    <p>
+        Example:<br>
+        <a href="https://aspd.esora.xyz/url?url=https://github.com/KageShiron/aspandoc/blob/master/www/index.html&from=html&to=gfm">https://aspd.esora.xyz/url?url=https://github.com/KageShiron/aspandoc/blob/master/www/index.html&from=html&to=gfm</a>
+    </p>
+
+    <h2>Gist</h2>
+    <p>
+        Syntax:<br>
+        <code>/gist/{id}</code>
+    </p>
+    <p>
+        Example:<br>
+        <a href="https://aspd.esora.xyz/gist/b59cdf3289f97567adc62e83419afb96?to=pdf">https://aspd.esora.xyz/gist/b59cdf3289f97567adc62e83419afb96?to=pdf</a>
+    </p>
+
+    <h2>Esa.io</h2>
+    <p>
+        Convert markdown on <a href="esa.io">esa.io</a> to anothoer format.<br>
+    </p>
+    <p>
+
+        Syntax:<br>
+        <code>
+            /esa/{team}/{documentNumber}?token={access_token}
+        </code>
+    </p>
+    <p>
+        Example:<br>
+        <code>
+            https://aspd.esora.xyz/esa/dev/102?token=XXXXXXXXXX&to=mediawiki
+        </code>
+
+    </p>
+    <h3>Note:</h3>
+    <p>
+        Using <a href="https://docs.esa.io/posts/102#GET%20/v1/teams/:team_name/posts">GET
+            /v1/teams/:team_name/posts</a> API.<br>
+        By default, this application use the markdown source in json. However, it use body_html source when you
+        specified <code>from=html</code> param.
+    </p>
+
+</body>
+
+
+</html>
